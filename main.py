@@ -52,4 +52,56 @@ async def get_seeding_servers(interaction: discord.Interaction):
     embedded_message = await PlayerCount().player_count()
     await interaction.response.send_message(embed=embedded_message)
 
+<<<<<<< Updated upstream
+=======
+
+@tree.command(
+    guild=GUILD,
+    name="get_yes_reactions",
+    description="Get all messages from the previous month"
+)
+async def get_sum_of_yes_reactions(interaction: discord.Interaction, year: str, month: str):
+    counter = await get_reaction_counter(month, year)
+    await interaction.response.send_message(counter)
+
+
+async def get_reaction_counter(month, year):
+    counter = 0
+    channel = client.get_channel(994427431228289034)
+    first_day, last_day = get_first_and_last_day(int(year), month)
+    messages = [message.reactions async for message in channel.history(limit=300, before=last_day, after=first_day)]
+    for message in messages:
+        if message is not None:
+            for reaction in message:
+                if reaction.emoji.name == 'yes':
+                    counter += 1
+    return counter
+
+
+def get_first_and_last_day(year: int, month: str) -> Tuple[datetime, datetime]:
+    month_number = datetime.strptime(month, "%B").month
+    first_day = datetime(year, month_number, 1)
+    last_day = datetime(year, month_number, calendar.monthrange(year, month_number)[1])
+
+    return first_day, last_day
+
+
+@get_sum_of_yes_reactions.autocomplete('year')
+async def auto_complete_year(interaction: discord.Interaction, year: str) -> List[app_commands.Choice[str]]:
+    years = ["2019", "2020", "2021", "2022"]
+    return [
+        app_commands.Choice(name=year, value=year)
+        for year in years
+    ]
+
+
+@get_sum_of_yes_reactions.autocomplete('month')
+async def auto_complete_month(interaction: discord.Interaction, month: str) -> List[app_commands.Choice[str]]:
+    months = calendar.month_name[1:]
+    return [
+        app_commands.Choice(name=month, value=month)
+        for month in months
+    ]
+
+>>>>>>> Stashed changes
 client.run(bot_token)
