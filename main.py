@@ -1,3 +1,7 @@
+from datetime import datetime
+from typing import List, Tuple
+
+import calendar
 import discord
 from discord import app_commands
 from dotenv import load_dotenv
@@ -52,8 +56,6 @@ async def get_seeding_servers(interaction: discord.Interaction):
     embedded_message = await PlayerCount().player_count()
     await interaction.response.send_message(embed=embedded_message)
 
-<<<<<<< Updated upstream
-=======
 
 @tree.command(
     guild=GUILD,
@@ -103,5 +105,4 @@ async def auto_complete_month(interaction: discord.Interaction, month: str) -> L
         for month in months
     ]
 
->>>>>>> Stashed changes
 client.run(bot_token)
