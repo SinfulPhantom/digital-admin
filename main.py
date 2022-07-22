@@ -1,4 +1,5 @@
-from datetime import datetime
+import os
+from datetime import datetime, timedelta
 from typing import List, Tuple
 
 import calendar
@@ -6,6 +7,11 @@ import discord
 from discord import app_commands
 from dotenv import load_dotenv
 from os import getenv
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import style
+style.use("fivethirtyeight")
 
 from player_note import CreatePlayerNote
 from servers import PlayerCount
@@ -59,25 +65,64 @@ async def get_seeding_servers(interaction: discord.Interaction):
 
 @tree.command(
     guild=GUILD,
-    name="get_yes_reactions",
-    description="Get all messages from the previous month"
+    name="get_admin_metrics",
+    description="Get metrics from specific year and month"
 )
-async def get_sum_of_yes_reactions(interaction: discord.Interaction, year: str, month: str):
-    counter = await get_reaction_counter(month, year)
-    await interaction.response.send_message(counter)
+async def get_admin_metrics(interaction: discord.Interaction, year: str, month: str):
+    if os.path.exists("adminmetrics.csv"):
+        os.remove("adminmetrics.csv")
+        print("Deleted existing admin metrics file")
+
+    await get_reaction_counter(month, year)
+    graph_png = "metrics.png"
+
+    file = discord.File(graph_png, filename=graph_png)
+    await interaction.response.send_message(graph_png, file=file)
 
 
 async def get_reaction_counter(month, year):
-    counter = 0
     channel = client.get_channel(994427431228289034)
     first_day, last_day = get_first_and_last_day(int(year), month)
-    messages = [message.reactions async for message in channel.history(limit=300, before=last_day, after=first_day)]
+    messages = [message async for message in channel.history(limit=300, before=last_day, after=first_day)]
+
+    return await get_monthly_report(messages)
+
+
+async def get_monthly_report(messages):
+    yes_counter = 0
+    no_counter = 0
+    neutral_counter = 0
+    no_reaction_counter = 0
+    total_counter = 0
+    metrics_file = "adminmetrics.csv"
+
     for message in messages:
-        if message is not None:
-            for reaction in message:
-                if reaction.emoji.name == 'yes':
-                    counter += 1
-    return counter
+        current_day = message.created_at.day
+        if len(message.reactions) == 0:
+            no_reaction_counter += 1
+        for reaction in message.reactions:
+            if reaction.emoji.name == 'yes':
+                yes_counter += 1
+            elif reaction.emoji.name == 'no':
+                no_counter += 1
+            elif reaction.emoji.name == 'check_neutral_yellow':
+                neutral_counter += 1
+        total_counter += 1
+        with open(metrics_file, "a") as f:
+            f.write(
+                f"{current_day},{yes_counter},{no_counter},{neutral_counter},{no_reaction_counter},{total_counter}\n"
+            )
+
+    plt.clf()
+    df = pd.read_csv(metrics_file, names=['day', 'yes', 'no', 'neutral', 'no_reaction', 'total'])
+    df.set_index('day', inplace=True)
+    df['yes'].plot()
+    df['no'].plot()
+    df['neutral'].plot()
+    df['no_reaction'].plot()
+    df['total'].plot()
+    plt.legend()
+    plt.savefig("metrics.png")
 
 
 def get_first_and_last_day(year: int, month: str) -> Tuple[datetime, datetime]:
@@ -88,7 +133,7 @@ def get_first_and_last_day(year: int, month: str) -> Tuple[datetime, datetime]:
     return first_day, last_day
 
 
-@get_sum_of_yes_reactions.autocomplete('year')
+@get_admin_metrics.autocomplete('year')
 async def auto_complete_year(interaction: discord.Interaction, year: str) -> List[app_commands.Choice[str]]:
     years = ["2019", "2020", "2021", "2022"]
     return [
@@ -97,7 +142,7 @@ async def auto_complete_year(interaction: discord.Interaction, year: str) -> Lis
     ]
 
 
-@get_sum_of_yes_reactions.autocomplete('month')
+@get_admin_metrics.autocomplete('month')
 async def auto_complete_month(interaction: discord.Interaction, month: str) -> List[app_commands.Choice[str]]:
     months = calendar.month_name[1:]
     return [
